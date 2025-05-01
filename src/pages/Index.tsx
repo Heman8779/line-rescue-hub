@@ -10,10 +10,13 @@ const Index: React.FC = () => {
   // Show a loading state while checking authentication
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-line-gray">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-line-blue border-r-transparent align-[-0.125em]" />
-          <p className="mt-2 text-gray-600">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
+        <div className="text-center animate-fade-in">
+          <div className="inline-flex items-center justify-center relative">
+            <div className="absolute inline-flex h-14 w-14 rounded-full border-t-4 border-b-4 border-line-blue animate-spin"></div>
+            <div className="h-8 w-8 bg-line-blue rounded-full"></div>
+          </div>
+          <p className="mt-4 text-gray-600 font-medium">Loading your dashboard...</p>
         </div>
       </div>
     );
