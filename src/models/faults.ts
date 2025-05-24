@@ -7,7 +7,6 @@ import {
   updateDoc, 
   query, 
   orderBy, 
-  where,
   Timestamp 
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
@@ -64,14 +63,6 @@ export const fetchFaults = async (): Promise<Fault[]> => {
     const querySnapshot = await getDocs(q);
     const faults = querySnapshot.docs.map(convertDocToFault);
     
-    // If no faults exist, create some sample data
-    if (faults.length === 0) {
-      await createSampleFaults();
-      // Fetch again after creating sample data
-      const newQuerySnapshot = await getDocs(q);
-      return newQuerySnapshot.docs.map(convertDocToFault);
-    }
-    
     return faults;
   } catch (error) {
     console.error('Error fetching faults:', error);
@@ -110,42 +101,5 @@ export const updateFaultStatus = async (faultId: string, status: 'pending' | 'in
   } catch (error) {
     console.error('Error updating fault:', error);
     return false;
-  }
-};
-
-// Create sample faults for demonstration
-const createSampleFaults = async (): Promise<void> => {
-  const sampleFaults = [
-    {
-      location: {
-        address: '123 Main Street, Power District',
-        city: 'Metropolis',
-        coordinates: { lat: 40.7128, lng: -74.0060 }
-      },
-      severity: 'high' as SeverityLevel,
-      description: 'Power line down after storm, sparks reported'
-    },
-    {
-      location: {
-        address: '456 Grid Avenue, North Sector',
-        city: 'Metropolis',
-        coordinates: { lat: 40.7122, lng: -74.0055 }
-      },
-      severity: 'medium' as SeverityLevel,
-      description: 'Transformer making unusual noise, occasional power flickers'
-    },
-    {
-      location: {
-        address: '789 Electric Blvd, East Sector',
-        city: 'Metropolis',
-        coordinates: { lat: 40.7135, lng: -74.0045 }
-      },
-      severity: 'low' as SeverityLevel,
-      description: 'Utility pole leaning slightly after heavy winds'
-    }
-  ];
-
-  for (const fault of sampleFaults) {
-    await createFault(fault);
   }
 };

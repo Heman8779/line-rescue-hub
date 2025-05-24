@@ -1,14 +1,5 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  User as FirebaseUser,
-  updateProfile
-} from 'firebase/auth';
-import { auth } from '@/config/firebase';
 import { toast } from "@/components/ui/sonner";
 
 // Define types
@@ -37,77 +28,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
-        setUser({
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-          email: firebaseUser.email || '',
-          role: 'lineman'
-        });
-      } else {
-        setUser(null);
-      }
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
+    // Check for stored user session
+    const storedUser = localStorage.getItem('lineRescueUser');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    setIsLoading(false);
   }, []);
 
-  // Login function
+  // Simple login function
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      // Simple validation
+      if (!email || !password) {
+        toast.error("Please enter both email and password");
+        return false;
+      }
+
+      // Create user object
+      const userData = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: email.split('@')[0],
+        email: email,
+        role: 'lineman'
+      };
+
+      setUser(userData);
+      localStorage.setItem('lineRescueUser', JSON.stringify(userData));
       toast.success("Login successful!");
       return true;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Login error:", error);
-      let errorMessage = "Login failed. Please try again.";
-      
-      if (error.code === 'auth/user-not-found') {
-        errorMessage = "No account found with this email.";
-      } else if (error.code === 'auth/wrong-password') {
-        errorMessage = "Incorrect password.";
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = "Invalid email address.";
-      } else if (error.code === 'auth/invalid-credential') {
-        errorMessage = "Invalid credentials.";
-      }
-      
-      toast.error(errorMessage);
+      toast.error("Login failed. Please try again.");
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Register function
+  // Simple register function
   const register = async (name: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // Update the user's display name
-      await updateProfile(userCredential.user, {
-        displayName: name
-      });
-      
+      // Simple validation
+      if (!name || !email || !password) {
+        toast.error("Please fill in all fields");
+        return false;
+      }
+
+      if (password.length < 6) {
+        toast.error("Password should be at least 6 characters");
+        return false;
+      }
+
+      // Create user object
+      const userData = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: name,
+        email: email,
+        role: 'lineman'
+      };
+
+      setUser(userData);
+      localStorage.setItem('lineRescueUser', JSON.stringify(userData));
       toast.success("Registration successful!");
       return true;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Registration error:", error);
-      let errorMessage = "Registration failed. Please try again.";
-      
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "An account with this email already exists.";
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = "Password should be at least 6 characters.";
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = "Invalid email address.";
-      }
-      
-      toast.error(errorMessage);
+      toast.error("Registration failed. Please try again.");
       return false;
     } finally {
       setIsLoading(false);
@@ -117,7 +106,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Logout function
   const logout = async () => {
     try {
-      await signOut(auth);
+      setUser(null);
+      localStorage.removeItem('lineRescueUser');
       toast.info("Logged out successfully");
     } catch (error) {
       console.error("Logout error:", error);
