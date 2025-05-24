@@ -1,5 +1,14 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  User as FirebaseUser,
+  updateProfile
+} from 'firebase/auth';
+import { auth } from '@/config/firebase';
 import { toast } from "@/components/ui/sonner";
 
 // Define types
@@ -22,72 +31,51 @@ type AuthContextType = {
 // Create the auth context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock API functions (in a real app, these would connect to your backend)
-const mockLogin = async (email: string, password: string): Promise<User | null> => {
-  // Simulate API request delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // For demo purposes, accept any email that looks valid with any password
-  if (email && email.includes('@') && password.length > 2) {
-    return {
-      id: '1',
-      name: email.split('@')[0],
-      email,
-      role: 'lineman'
-    };
-  }
-  
-  return null;
-};
-
-const mockRegister = async (name: string, email: string, password: string): Promise<User | null> => {
-  // Simulate API request delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // For demo purposes, accept any registration with valid-looking data
-  if (name && email && email.includes('@') && password.length > 2) {
-    return {
-      id: '1',
-      name,
-      email,
-      role: 'lineman'
-    };
-  }
-  
-  return null;
-};
-
 // Create the auth provider
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for saved user in localStorage
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        setUser({
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          email: firebaseUser.email || '',
+          role: 'lineman'
+        });
+      } else {
+        setUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Login function
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const user = await mockLogin(email, password);
-      if (user) {
-        setUser(user);
-        localStorage.setItem('user', JSON.stringify(user));
-        toast.success("Login successful!");
-        return true;
-      } else {
-        toast.error("Invalid credentials");
-        return false;
-      }
-    } catch (error) {
+      await signInWithEmailAndPassword(auth, email, password);
+      toast.success("Login successful!");
+      return true;
+    } catch (error: any) {
       console.error("Login error:", error);
-      toast.error("Login failed. Please try again.");
+      let errorMessage = "Login failed. Please try again.";
+      
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = "No account found with this email.";
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = "Incorrect password.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Invalid email address.";
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = "Invalid credentials.";
+      }
+      
+      toast.error(errorMessage);
       return false;
     } finally {
       setIsLoading(false);
@@ -98,19 +86,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      const user = await mockRegister(name, email, password);
-      if (user) {
-        setUser(user);
-        localStorage.setItem('user', JSON.stringify(user));
-        toast.success("Registration successful!");
-        return true;
-      } else {
-        toast.error("Registration failed");
-        return false;
-      }
-    } catch (error) {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Update the user's display name
+      await updateProfile(userCredential.user, {
+        displayName: name
+      });
+      
+      toast.success("Registration successful!");
+      return true;
+    } catch (error: any) {
       console.error("Registration error:", error);
-      toast.error("Registration failed. Please try again.");
+      let errorMessage = "Registration failed. Please try again.";
+      
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "An account with this email already exists.";
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = "Password should be at least 6 characters.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Invalid email address.";
+      }
+      
+      toast.error(errorMessage);
       return false;
     } finally {
       setIsLoading(false);
@@ -118,10 +115,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Logout function
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    toast.info("Logged out successfully");
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      toast.info("Logged out successfully");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Error logging out");
+    }
   };
 
   return (

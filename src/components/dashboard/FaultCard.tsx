@@ -1,6 +1,5 @@
-
-import React from 'react';
-import { Fault, SeverityLevel } from '@/models/faults';
+import React, { useState } from 'react';
+import { Fault, SeverityLevel, updateFaultStatus } from '@/models/faults';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, CheckCircle, Clock, MapPin, Clipboard, Phone } from 'lucide-react';
@@ -8,16 +7,36 @@ import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/sonner';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface FaultCardProps {
   fault: Fault;
+  onUpdate?: () => void;
 }
 
-const FaultCard: React.FC<FaultCardProps> = ({ fault }) => {
+const FaultCard: React.FC<FaultCardProps> = ({ fault, onUpdate }) => {
+  const { user } = useAuth();
   const { id, location, severity, description, otp, reportedAt, status } = fault;
+  const [isUpdating, setIsUpdating] = useState(false);
   
-  const handleAccept = () => {
-    toast.success(`Accepted fault #${id.split('-')[1]}. OTP: ${otp}`);
+  const handleAccept = async () => {
+    if (!user) return;
+    
+    setIsUpdating(true);
+    try {
+      const success = await updateFaultStatus(id, 'in-progress', user.id);
+      if (success) {
+        toast.success(`Accepted fault #${id.split('-')[1] || id.slice(-6)}. OTP: ${otp}`);
+        if (onUpdate) onUpdate();
+      } else {
+        toast.error('Failed to accept fault. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error accepting fault:', error);
+      toast.error('Failed to accept fault. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleCopyOtp = () => {
@@ -86,7 +105,7 @@ const FaultCard: React.FC<FaultCardProps> = ({ fault }) => {
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg font-bold">
-            Fault #{id.split('-')[1]}
+            Fault #{id.split('-')[1] || id.slice(-6)}
           </CardTitle>
           {getStatusBadge(status)}
         </div>
@@ -161,8 +180,16 @@ const FaultCard: React.FC<FaultCardProps> = ({ fault }) => {
           <Button 
             className="w-full bg-line-blue hover:bg-blue-700 font-medium transition-colors shadow-md shadow-blue-700/10" 
             onClick={handleAccept}
+            disabled={isUpdating}
           >
-            Accept Job
+            {isUpdating ? (
+              <>
+                <div className="h-4 w-4 border-t-2 border-r-2 border-white rounded-full animate-spin mr-2" />
+                Accepting...
+              </>
+            ) : (
+              'Accept Job'
+            )}
           </Button>
         </CardFooter>
       )}

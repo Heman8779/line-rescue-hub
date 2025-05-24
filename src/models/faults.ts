@@ -1,4 +1,17 @@
 
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  doc, 
+  updateDoc, 
+  query, 
+  orderBy, 
+  where,
+  Timestamp 
+} from 'firebase/firestore';
+import { db } from '@/config/firebase';
+
 export type SeverityLevel = 'low' | 'medium' | 'high';
 
 export interface Location {
@@ -21,53 +34,118 @@ export interface Fault {
   assignedTo?: string;
 }
 
-// Mock data for demonstration
-export const mockFaults: Fault[] = [
-  {
-    id: 'fault-001',
-    location: {
-      address: '123 Main Street, Power District',
-      city: 'Metropolis',
-      coordinates: { lat: 40.7128, lng: -74.0060 }
-    },
-    severity: 'high',
-    description: 'Power line down after storm, sparks reported',
-    otp: '847291',
-    reportedAt: new Date(Date.now() - 3600000).toISOString(),
-    status: 'pending'
-  },
-  {
-    id: 'fault-002',
-    location: {
-      address: '456 Grid Avenue, North Sector',
-      city: 'Metropolis',
-      coordinates: { lat: 40.7122, lng: -74.0055 }
-    },
-    severity: 'medium',
-    description: 'Transformer making unusual noise, occasional power flickers',
-    otp: '392481',
-    reportedAt: new Date(Date.now() - 7200000).toISOString(),
-    status: 'in-progress',
-    assignedTo: '1'
-  },
-  {
-    id: 'fault-003',
-    location: {
-      address: '789 Electric Blvd, East Sector',
-      city: 'Metropolis',
-      coordinates: { lat: 40.7135, lng: -74.0045 }
-    },
-    severity: 'low',
-    description: 'Utility pole leaning slightly after heavy winds',
-    otp: '573921',
-    reportedAt: new Date(Date.now() - 10800000).toISOString(),
-    status: 'pending'
-  }
-];
+// Generate a random OTP
+const generateOTP = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
-// Mock service to fetch faults data
+// Convert Firestore document to Fault object
+const convertDocToFault = (doc: any): Fault => {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    location: data.location,
+    severity: data.severity,
+    description: data.description,
+    otp: data.otp,
+    reportedAt: data.reportedAt instanceof Timestamp ? data.reportedAt.toDate().toISOString() : data.reportedAt,
+    status: data.status,
+    assignedTo: data.assignedTo
+  };
+};
+
+// Fetch faults from Firestore
 export const fetchFaults = async (): Promise<Fault[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return mockFaults;
+  try {
+    const q = query(
+      collection(db, 'faults'), 
+      orderBy('reportedAt', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    const faults = querySnapshot.docs.map(convertDocToFault);
+    
+    // If no faults exist, create some sample data
+    if (faults.length === 0) {
+      await createSampleFaults();
+      // Fetch again after creating sample data
+      const newQuerySnapshot = await getDocs(q);
+      return newQuerySnapshot.docs.map(convertDocToFault);
+    }
+    
+    return faults;
+  } catch (error) {
+    console.error('Error fetching faults:', error);
+    return [];
+  }
+};
+
+// Create a new fault
+export const createFault = async (faultData: Omit<Fault, 'id' | 'otp' | 'reportedAt' | 'status'>): Promise<string | null> => {
+  try {
+    const newFault = {
+      ...faultData,
+      otp: generateOTP(),
+      reportedAt: Timestamp.now(),
+      status: 'pending'
+    };
+    
+    const docRef = await addDoc(collection(db, 'faults'), newFault);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating fault:', error);
+    return null;
+  }
+};
+
+// Update fault status
+export const updateFaultStatus = async (faultId: string, status: 'pending' | 'in-progress' | 'resolved', assignedTo?: string): Promise<boolean> => {
+  try {
+    const faultRef = doc(db, 'faults', faultId);
+    const updateData: any = { status };
+    if (assignedTo) {
+      updateData.assignedTo = assignedTo;
+    }
+    await updateDoc(faultRef, updateData);
+    return true;
+  } catch (error) {
+    console.error('Error updating fault:', error);
+    return false;
+  }
+};
+
+// Create sample faults for demonstration
+const createSampleFaults = async (): Promise<void> => {
+  const sampleFaults = [
+    {
+      location: {
+        address: '123 Main Street, Power District',
+        city: 'Metropolis',
+        coordinates: { lat: 40.7128, lng: -74.0060 }
+      },
+      severity: 'high' as SeverityLevel,
+      description: 'Power line down after storm, sparks reported'
+    },
+    {
+      location: {
+        address: '456 Grid Avenue, North Sector',
+        city: 'Metropolis',
+        coordinates: { lat: 40.7122, lng: -74.0055 }
+      },
+      severity: 'medium' as SeverityLevel,
+      description: 'Transformer making unusual noise, occasional power flickers'
+    },
+    {
+      location: {
+        address: '789 Electric Blvd, East Sector',
+        city: 'Metropolis',
+        coordinates: { lat: 40.7135, lng: -74.0045 }
+      },
+      severity: 'low' as SeverityLevel,
+      description: 'Utility pole leaning slightly after heavy winds'
+    }
+  ];
+
+  for (const fault of sampleFaults) {
+    await createFault(fault);
+  }
 };

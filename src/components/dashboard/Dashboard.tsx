@@ -5,6 +5,7 @@ import FaultCard from './FaultCard';
 import { fetchFaults, Fault } from '@/models/faults';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Settings, HelpCircle, AlertCircle, ListFilter } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 
 const Dashboard: React.FC = () => {
   const [faults, setFaults] = useState<Fault[]>([]);
@@ -14,10 +15,12 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const loadFaults = async () => {
       try {
+        setLoading(true);
         const data = await fetchFaults();
         setFaults(data);
       } catch (error) {
         console.error('Error fetching faults:', error);
+        toast.error('Failed to load faults. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -25,6 +28,17 @@ const Dashboard: React.FC = () => {
     
     loadFaults();
   }, []);
+
+  // Function to refresh faults data
+  const refreshFaults = async () => {
+    try {
+      const data = await fetchFaults();
+      setFaults(data);
+    } catch (error) {
+      console.error('Error refreshing faults:', error);
+      toast.error('Failed to refresh faults.');
+    }
+  };
   
   const filteredFaults = filter === 'all' 
     ? faults 
@@ -70,7 +84,11 @@ const Dashboard: React.FC = () => {
                 </button>
               </div>
               
-              <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+              <button 
+                onClick={refreshFaults}
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                title="Refresh faults"
+              >
                 <ListFilter className="h-5 w-5 text-gray-500" />
               </button>
             </div>
@@ -117,7 +135,7 @@ const Dashboard: React.FC = () => {
                 <p className="text-sm text-gray-500 mb-4">Showing {filteredFaults.length} result{filteredFaults.length !== 1 ? 's' : ''}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredFaults.map((fault) => (
-                    <FaultCard key={fault.id} fault={fault} />
+                    <FaultCard key={fault.id} fault={fault} onUpdate={refreshFaults} />
                   ))}
                 </div>
               </div>
