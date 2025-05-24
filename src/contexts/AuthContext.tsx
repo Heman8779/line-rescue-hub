@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 // Define types
 type User = {
@@ -29,20 +29,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Check for stored user session
-    const storedUser = localStorage.getItem('lineRescueUser');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    try {
+      const storedUser = localStorage.getItem('lineRescueUser');
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      }
+    } catch (error) {
+      console.error('Error loading user from localStorage:', error);
+      localStorage.removeItem('lineRescueUser');
     }
     setIsLoading(false);
   }, []);
 
   // Simple login function
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
       // Simple validation
       if (!email || !password) {
         toast.error("Please enter both email and password");
+        return false;
+      }
+
+      if (!email.includes('@')) {
+        toast.error("Please enter a valid email address");
         return false;
       }
 
@@ -68,12 +79,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Simple register function
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
       // Simple validation
       if (!name || !email || !password) {
         toast.error("Please fill in all fields");
+        return false;
+      }
+
+      if (!email.includes('@')) {
+        toast.error("Please enter a valid email address");
         return false;
       }
 
@@ -104,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Logout function
-  const logout = async () => {
+  const logout = () => {
     try {
       setUser(null);
       localStorage.removeItem('lineRescueUser');
@@ -115,17 +131,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const value = {
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    login,
+    register,
+    logout,
+  };
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        isLoading,
-        login,
-        register,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
