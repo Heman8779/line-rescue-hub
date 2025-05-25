@@ -16,6 +16,7 @@ interface FaultCardProps {
 
 const FaultCard: React.FC<FaultCardProps> = ({ fault, onUpdate }) => {
   const { user } = useAuth();
+  console.log("Fault");
   const { id, location, severity, description, otp, reportedAt, status } = fault;
   const [isUpdating, setIsUpdating] = useState(false);
   
