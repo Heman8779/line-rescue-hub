@@ -45,7 +45,7 @@ const convertSnapshotToFault = (key: string, data: any): Fault => {
     severity: data.severity,
     description: data.description,
     otp: data.otp,
-    reportedAt: data.reportedAt,
+    reportedAt: data.relaystatus,
     status: data.status,
     assignedTo: data.assignedTo
   };
@@ -54,8 +54,8 @@ const convertSnapshotToFault = (key: string, data: any): Fault => {
 // Fetch faults from Realtime Database
 export const fetchFaults = async (): Promise<Fault[]> => {
   try {
-    const faultsRef = ref(db, 'faults');
-    const q = query(faultsRef, orderByChild('reportedAt'));
+    const data = ref(db, 'faults');
+    const q = query(data, orderByChild('relaystatus'));
     const snapshot = await get(q);
     
     if (snapshot.exists()) {
