@@ -1,14 +1,13 @@
 
 import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  doc, 
-  updateDoc, 
-  query, 
-  orderBy, 
-  Timestamp 
-} from 'firebase/firestore';
+  ref, 
+  push, 
+  get, 
+  update, 
+  serverTimestamp,
+  query,
+  orderByChild
+} from 'firebase/database';
 import { db } from '@/config/firebase';
 
 export type SeverityLevel = 'low' | 'medium' | 'high';
@@ -38,32 +37,37 @@ const generateOTP = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Convert Firestore document to Fault object
-const convertDocToFault = (doc: any): Fault => {
-  const data = doc.data();
+// Convert Realtime Database snapshot to Fault object
+const convertSnapshotToFault = (key: string, data: any): Fault => {
   return {
-    id: doc.id,
+    id: key,
     location: data.location,
     severity: data.severity,
     description: data.description,
     otp: data.otp,
-    reportedAt: data.reportedAt instanceof Timestamp ? data.reportedAt.toDate().toISOString() : data.reportedAt,
+    reportedAt: data.reportedAt,
     status: data.status,
     assignedTo: data.assignedTo
   };
 };
 
-// Fetch faults from Firestore
+// Fetch faults from Realtime Database
 export const fetchFaults = async (): Promise<Fault[]> => {
   try {
-    const q = query(
-      collection(db, 'faults'), 
-      orderBy('reportedAt', 'desc')
-    );
-    const querySnapshot = await getDocs(q);
-    const faults = querySnapshot.docs.map(convertDocToFault);
+    const faultsRef = ref(db, 'faults');
+    const q = query(faultsRef, orderByChild('reportedAt'));
+    const snapshot = await get(q);
     
-    return faults;
+    if (snapshot.exists()) {
+      const faultsData = snapshot.val();
+      const faults = Object.keys(faultsData)
+        .map(key => convertSnapshotToFault(key, faultsData[key]))
+        .sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime());
+      
+      return faults;
+    } else {
+      return [];
+    }
   } catch (error) {
     console.error('Error fetching faults:', error);
     return [];
@@ -73,15 +77,16 @@ export const fetchFaults = async (): Promise<Fault[]> => {
 // Create a new fault
 export const createFault = async (faultData: Omit<Fault, 'id' | 'otp' | 'reportedAt' | 'status'>): Promise<string | null> => {
   try {
+    const faultsRef = ref(db, 'faults');
     const newFault = {
       ...faultData,
       otp: generateOTP(),
-      reportedAt: Timestamp.now(),
+      reportedAt: new Date().toISOString(),
       status: 'pending'
     };
     
-    const docRef = await addDoc(collection(db, 'faults'), newFault);
-    return docRef.id;
+    const newFaultRef = await push(faultsRef, newFault);
+    return newFaultRef.key;
   } catch (error) {
     console.error('Error creating fault:', error);
     return null;
@@ -91,12 +96,12 @@ export const createFault = async (faultData: Omit<Fault, 'id' | 'otp' | 'reporte
 // Update fault status
 export const updateFaultStatus = async (faultId: string, status: 'pending' | 'in-progress' | 'resolved', assignedTo?: string): Promise<boolean> => {
   try {
-    const faultRef = doc(db, 'faults', faultId);
+    const faultRef = ref(db, `faults/${faultId}`);
     const updateData: any = { status };
     if (assignedTo) {
       updateData.assignedTo = assignedTo;
     }
-    await updateDoc(faultRef, updateData);
+    await update(faultRef, updateData);
     return true;
   } catch (error) {
     console.error('Error updating fault:', error);
