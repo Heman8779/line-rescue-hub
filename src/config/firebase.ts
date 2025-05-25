@@ -4,13 +4,15 @@ import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-project-id.firebaseapp.com",
-  databaseURL: "https://your-project-id-default-rtdb.firebaseio.com/",
-  projectId: "your-project-id",
-  storageBucket: "your-project-id.appspot.com",
-  messagingSenderId: "your-sender-id",
-  appId: "your-app-id"
+   apiKey: "AIzaSyAZaj3uWazzyg0CwGI_SpV4kAxxO0FwWp0",
+  authDomain: "majorproject-285f3.firebaseapp.com",
+  databaseURL: "https://majorproject-285f3-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "majorproject-285f3",
+  storageBucket: "majorproject-285f3.firebasestorage.app",
+  messagingSenderId: "7869555302",
+  appId: "1:7869555302:web:99beccc57f42ea2ea8c3a7",
+  measurementId: "G-3HTVDV2JY2"
+
 };
 
 // Initialize Firebase
